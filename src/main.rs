@@ -49,7 +49,7 @@ struct CBack{
 impl Card<f64> for CBack{
     fn front<S:SvgWrite>(&self,svg:&mut S,w:f64,h:f64){
         svg.rect(0.0,0.0,w,h,Args::new().stroke_width(w*0.05).stroke("black").fill("#999999"));
-        svg.rect(w*0.1,h*0.1,w*0.8,h*0.8,Args::new().stroke_width(w*0.05).stroke("black").fill("#ff0000"));
+        svg.rect(w*0.1,h*0.1,w*0.8,h*0.8,Args::new().stroke_width(w*0.05).stroke("black").fill("#bbbbbb"));
         let (tsize,tdepth)  = match self.tx.len() {
             1|2 => (h *0.2,h*0.28),
             _=> (h *0.13,h*0.2),
