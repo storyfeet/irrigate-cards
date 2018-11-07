@@ -21,13 +21,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "irrigate"
 version = "0.1.0"
 dependencies = [
- "lazyf 0.1.2",
+ "lazy_conf 0.1.1",
  "mksvg 0.1.1",
 ]
 
 [[package]]
-name = "lazyf"
-version = "0.1.2"
+name = "lazy_conf"
+version = "0.1.1"
 
 [[package]]
 name = "libc"

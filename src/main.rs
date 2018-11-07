@@ -1,8 +1,5 @@
-extern crate lazyf;
-extern crate mksvg;
-
 use mksvg::{SvgWrite,page,Card,Args,SvgArg};
-use lazyf::{Cfg,SGetter,LzList};
+use lazy_conf::{config,Loader,LzList,Getable};
 
 //use std::io::stdout;
 use std::path::{PathBuf,Path};
@@ -62,56 +59,65 @@ impl Card<f64> for CBack{
     }
 }
 
-fn main(){
-    let cf = Cfg::load_first("-c",&["conf.lz"]);
+fn main()->Result<(),lazy_conf::LzErr>{
+    let mut cf = config("-c",&["conf.lz"])?;
         
-    let cardloc =cf.localize(&cf.get_s_def(("-cards","config.cards"),"cards.lz"));
+    //end in underscore_ shows still option
+    let cardloc_ = cf.grab().cf("config.card_loc").help("Card Location").s_local();
 
-    let cardlz = LzList::load(cardloc).unwrap();
 
+    let linkpath_ = cf.grab().cf("config.link-path")
+                        .help("Link Path -- the svgs relative path to img folder").s_req("Link Path");
 
-    let ops = cf.get_s_def(("-","config.options"),"tee");
+    let fout = cf.grab().cf("config.out-front")
+                    .help("Front Output -- base path for card fronts")
+                    .s_local().unwrap_or(PathBuf::from("out/f"));
+    let bout = cf.grab().cf("config.out-back")
+                    .help("Back Output -- base path for card backs")
+                    .s_local().unwrap_or(PathBuf::from("out/b"));
 
-    let linkpath = cf.localize(&cf.get_s_def(("-lpath","config.link-path"),""));
+    let pdf_out_ = cf.grab().cf("config.out-pdf")
+                    .help("final pdf result")
+                    .s_local();
+
+    if cf.help("Irrigate Card Maker"){
+        return Ok(());
+    }
+
+    let linkpath = linkpath_.unwrap();//safe past help
+    
+    let cardlz = LzList::load(&cardloc_.unwrap())?;
+    
     let mut fronts = Vec::new();
     let mut backs = Vec::new();
 
-
-    
-    for c in cardlz.iter(){
-        let tp = c.get_s_def("type","person");
-        //print!("<!--{}-->\n",tp);
-        let cols = match cf.lz_by_name(&tp){
-            Some(lz)=>lz.get_s_def("colors","#000000"),
-            _=>{continue;},
-        };
-        let cost = c.get_t_def("cost",0);
-        for op in ops.split(",") {
-            match c.get_t::<usize>(op){
-                Some(n)=>{
-                    for _ in 0 ..n {
-                        for col in cols.split(","){
-                            //print!("  <!--{}-->\n",op.to_string());
-                            fronts.push(CFront{
-                                shape:op.to_string(),
-                                col:col.to_string(),
-                                cost:cost, 
-                                linkpath:&linkpath,
-                            });
-                            backs.push(CBack{
-                                tx:c.get_s_def("back","NONE"),
-                            });
-                        }
-                    }
+    for c_item in cardlz.items.iter(){
+        let shapes = c_item.get("shapes").unwrap();//TODO ? somehow
+        let count = c_item.get("count").unwrap().parse().unwrap();
+        let cols = c_item.get("colors").unwrap();
+        let back = c_item.get("back").unwrap();
+        let cols = cf.grab().cf(&format!("colors.{}",cols)).s().unwrap();
+        for i in 0..count{
+            println!("Card:{}",i);
+            for sh in shapes.split(',').map(|s|s.trim()){
+                for col in cols.split(',').map(|s|s.trim()){
+                    fronts.push(CFront{
+                        shape:sh.to_string(),
+                        col:col.to_string(),
+                        cost:3, 
+                        linkpath:linkpath.as_ref(),
+                    });
+                    backs.push(CBack{
+                        tx:back.to_string(),
+                    });
                 }
-                _=>{},
             }
-        }//op in ops
-    }
-    let fout = cf.localize(&cf.get_s_def(("-fout","config.out-front"),"out/f"));
-    let fpages = page::pages_a4(fout,5,7,&fronts);
+        }
 
-    let bout = cf.localize(&cf.get_s_def(("-bout","config.out-back"),"out/f"));
+    }
+
+    //todo fix cols rows
+    let fpages = page::pages_a4(fout,5,7,&fronts);
 
     let backs=  page::page_flip(&backs,5);
 
@@ -119,8 +125,11 @@ fn main(){
 
     let allpages = page::interlace(fpages,bpages);
 
-    page::unite_as_pdf(allpages,cf.localize(&cf.get_s_def(("-pdf","config.out-pdf"),"out/all.pdf")));
+    if let Some(p) = pdf_out_ {
+        page::unite_as_pdf(allpages,p);
+    }
 
+    Ok(())
     
     //mksvg::page::page_a4(std::io::stdout(),5,7,&fronts);
 
