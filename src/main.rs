@@ -9,7 +9,6 @@ use std::path::{PathBuf,Path};
 struct CFront<'a>{
     shape:String,
     col:String,
-    cost:i32,
     linkpath:&'a Path,
 }
 
@@ -20,19 +19,6 @@ impl<'a> Card<f64> for CFront<'a>{
         imgloc.push(&format!("{}.svg",self.shape));
         let imgloc = imgloc.to_str().unwrap();
         svg.img(imgloc,0.0,0.0,w,h);
-        if self.cost != 0 {
-            for i in 0..4 {
-                svg.g_rotate((i*90) as f64,w/2.0,h/2.0);
-                svg.ellipse(w*0.11,h*0.11,w*0.08,w*0.08,
-                    Args::new().stroke_width(w*0.02)
-                    .fill("gold").stroke("black"));
-
-                svg.bg_text(&self.cost.to_string(),w*0.11,h*0.16,
-                    h*0.11,w*0.015,"white",
-                    Args::new().t_anc("middle").fill("black").font_weight("bold"));
-                svg.g_end();
-            }
-        }
     }
 }
 
@@ -47,15 +33,12 @@ impl Card<f64> for CBack{
     fn front<S:SvgWrite>(&self,svg:&mut S,w:f64,h:f64){
         svg.rect(0.0,0.0,w,h,Args::new().stroke_width(w*0.05).stroke("black").fill("#999999"));
         svg.rect(w*0.1,h*0.1,w*0.8,h*0.8,Args::new().stroke_width(w*0.05).stroke("black").fill("#bbbbbb"));
-        let (tsize,tdepth)  = match self.tx.len() {
-            1|2 => (h *0.2,h*0.28),
-            _=> (h *0.13,h*0.2),
+        let tsize = match self.tx.len() {
+            1|2 => h *0.5,
+            _=> h *0.3,
         };
-        for i in 0..4 {
-            svg.g_rotate((i*90) as f64,w*0.5,h*0.5);
-            svg.bg_text(&self.tx,w*0.5,tdepth,tsize,tsize*0.2,"white",Args::new().font_weight("bold").t_anc("middle"));
-            svg.g_end();
-        }
+        
+        svg.bg_text(&self.tx,w*0.5,h*0.5+tsize*0.3,tsize,tsize*0.2,"white",Args::new().font_weight("bold").t_anc("middle"));
     }
 }
 
@@ -95,21 +78,22 @@ fn main()->Result<(),lazy_conf::LzErr>{
         let shapes = c_item.get("shapes").unwrap();//TODO ? somehow
         let count = c_item.get("count").unwrap().parse().unwrap();
         let cols = c_item.get("colors").unwrap();
-        let back = c_item.get("back").unwrap();
+        let cbacks = c_item.get("backs").unwrap();
         let cols = cf.grab().cf(&format!("colors.{}",cols)).s().unwrap();
         for i in 0..count{
             println!("Card:{}",i);
             for sh in shapes.split(',').map(|s|s.trim()){
                 for col in cols.split(',').map(|s|s.trim()){
-                    fronts.push(CFront{
-                        shape:sh.to_string(),
-                        col:col.to_string(),
-                        cost:3, 
-                        linkpath:linkpath.as_ref(),
-                    });
-                    backs.push(CBack{
-                        tx:back.to_string(),
-                    });
+                    for bak in cbacks.split(',').map(|s|s.trim()){
+                        fronts.push(CFront{
+                            shape:sh.to_string(),
+                            col:col.to_string(),
+                            linkpath:linkpath.as_ref(),
+                        });
+                        backs.push(CBack{
+                            tx:bak.to_string(),
+                        });
+                    }
                 }
             }
         }
