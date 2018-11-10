@@ -80,11 +80,10 @@ fn main()->Result<(),lazy_conf::LzErr>{
         let cols = c_item.get("colors").unwrap();
         let cbacks = c_item.get("backs").unwrap();
         let cols = cf.grab().cf(&format!("colors.{}",cols)).s().unwrap();
-        for i in 0..count{
-            println!("Card:{}",i);
+        for bak in cbacks.split(',').map(|s|s.trim()){
             for sh in shapes.split(',').map(|s|s.trim()){
                 for col in cols.split(',').map(|s|s.trim()){
-                    for bak in cbacks.split(',').map(|s|s.trim()){
+                    for _ in 0..count{
                         fronts.push(CFront{
                             shape:sh.to_string(),
                             col:col.to_string(),
