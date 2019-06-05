@@ -9,3 +9,4 @@ edition = "2018"
 
 lazy_conf = { path = "../../mlibs/lazy_conf"}
 mksvg = { path = "../../mlibs/mksvg"}
+failure = "0.1.5"
