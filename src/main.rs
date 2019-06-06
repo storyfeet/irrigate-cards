@@ -1,16 +1,22 @@
-use lazy_conf::{config, Getable, Loader, LzList};
+use clap_conf::prelude::*;
+use failure_derive::*;
+use lazy_conf::{Getable, Loader, LzList};
 use mksvg::{page, Args, Card, SvgArg, SvgWrite};
 
 //use std::io::stdout;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct CFront<'a> {
     shape: String,
     col: String,
     pic: Option<String>,
     linkpath: &'a Path,
 }
+
+#[derive(Debug, Fail)]
+#[fail(display = "e{}", 0)]
+struct StErr(&'static str);
 
 impl<'a> Card<f64> for CFront<'a> {
     fn front<S: SvgWrite>(&self, svg: &mut S, w: f64, h: f64) {
@@ -79,65 +85,68 @@ impl Card<f64> for CBack {
 }
 
 fn main() -> Result<(), failure::Error> {
-    let mut cf = config("-c", &["conf.lz"])?;
+    //    let mut cf = config("-c", &["conf.lz"])?;
 
+    let clp = clap_app! (irrigate=>
+        (about:"Makes cards for Pipeland Game")
+        (version:crate_version!())
+        (author:"Matthew Stoodley")
+        (@arg config:-c +takes_value "Location of config file")
+    )
+    .get_matches();
+
+    let cfg = with_toml_env(&clp, &["conf.toml"]);
     //end in underscore_ shows still option
-    let cardloc_ = cf
+    println!("{:?}", cfg);
+
+    let cardloc = cfg
+        .grab_local()
+        .conf("config.card_loc")
+        .done()
+        .ok_or(StErr("Please Provide Card Loc 'config.card_loc'"))?;
+
+    let linkpath = cfg
         .grab()
-        .cf("config.card_loc")
-        .help("Card Location")
-        .s_local();
+        .conf("config.link-path")
+        .done()
+        .ok_or(StErr("Please provide link path 'config.link-path'"))?;
 
-    let linkpath_ = cf
-        .grab()
-        .cf("config.link-path")
-        .help("Link Path -- the svgs relative path to img folder")
-        .s_req("Link Path");
+    let fout = cfg //todo work out localise
+        .grab_local()
+        .conf("config.out-front")
+        .def("out/b");
 
-    let fout = cf
-        .grab()
-        .cf("config.out-front")
-        .help("Front Output -- base path for card fronts")
-        .s_local()
-        .unwrap_or(PathBuf::from("out/f"));
-    let bout = cf
-        .grab()
-        .cf("config.out-back")
-        .help("Back Output -- base path for card backs")
-        .s_local()
-        .unwrap_or(PathBuf::from("out/b"));
+    let bout = cfg //todo work out localise
+        .grab_local()
+        .conf("config.out-back")
+        .def("out/b");
 
-    let pdf_out_ = cf
-        .grab()
-        .cf("config.out-pdf")
-        .help("final pdf result")
-        .s_local();
+    let pdf_out_ = cfg //todo work out localise
+        .grab_local()
+        .conf("config.out-pdf")
+        .done();
 
-    if cf.help("Irrigate Card Maker") {
-        return Ok(());
-    }
-
-    let linkpath = linkpath_.unwrap(); //safe past help
-
-    let cardlz = LzList::load(&cardloc_.unwrap())?;
+    println!("cardloc = {:?}", cardloc);
+    let cardlz = LzList::load(&cardloc)?;
+    println!("Cardlz = {:?}", cardlz);
 
     let mut fronts = Vec::new();
     let mut backs = Vec::new();
 
     for c_item in cardlz.items.iter() {
+        println!("c_item == {:?}", c_item);
         let shapes = c_item.get("shapes").unwrap(); //TODO ? somehow
         let count = c_item.get("count").unwrap().parse().unwrap();
         let col_mems = c_item.get("colors").unwrap();
         let cbacks = c_item.get("backs").unwrap();
-        let cols = cf.grab().cf(&format!("colors.{}", col_mems)).s();
-        let pics = cf.grab().cf(&format!("pics.{}", col_mems)).s();
+        let cols = cfg.grab().conf(&format!("colors.{}", col_mems)).done();
+        let pics = cfg.grab().conf(&format!("pics.{}", col_mems)).done();
         for bak in cbacks.split(',').map(|s| s.trim()) {
             for sh in shapes.split(',').map(|s| s.trim()) {
-                let sh = cf
+                let sh = cfg
                     .grab()
-                    .cf(&format!("shapes.{}", sh))
-                    .s()
-                    .unwrap_or(format!("{}.svg", sh));
+                    .conf(&format!("shapes.{}", sh))
+                    .def(format!("{}.svg", sh));
                 for _ in 0..count {
                     if let Some(ref cols) = cols {
                         for col in cols.split(',').map(|s| s.trim()) {
@@ -170,6 +179,7 @@ fn main() -> Result<(), failure::Error> {
         }
     }
 
+    println!("fronts = {:?}", fronts);
     //todo fix cols rows
     let fpages = page::pages_a4(fout, 5, 7, &fronts)?;
 
