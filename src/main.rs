@@ -1,7 +1,7 @@
 use clap_conf::prelude::*;
 use failure_derive::*;
 use lazy_conf::{Getable, Loader, LzList};
-use mksvg::{page, Args, Card, SvgArg, SvgWrite};
+use mksvg::{page, Args, Card, PathD, SvgArg, SvgWrite, Tag};
 
 //use std::io::stdout;
 use std::path::{Path, PathBuf};
@@ -27,6 +27,21 @@ impl<'a> Card<f64> for CFront<'a> {
             h,
             Args::new().stroke_width(5).stroke("black").fill(&self.col),
         );
+        if self.col == "gray" {
+            //Could be better
+            Tag::path(
+                PathD::abs()
+                    .m(w * 0.7, h * 0.7)
+                    .q(w * 0.8, h * 0.75, w * 0.9, h * 0.7)
+                    .q(w * 0.9, h * 0.86, w * 0.8, h * 0.9)
+                    .q(w * 0.7, h * 0.86, w * 0.7, h * 0.7),
+            )
+            .fill("white")
+            .stroke("black")
+            .stroke_width(w * 0.01)
+            .write(svg);
+        }
+
         if let Some(ref p) = self.pic {
             let mut imgloc = PathBuf::from(self.linkpath);
             imgloc.push(p);
